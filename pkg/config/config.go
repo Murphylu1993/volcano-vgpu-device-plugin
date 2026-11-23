@@ -24,21 +24,25 @@ import (
 )
 
 type NvidiaConfig struct {
-	ResourceCountName            string                 `yaml:"resourceCountName"`
-	ResourceMemoryName           string                 `yaml:"resourceMemoryName"`
-	ResourceCoreName             string                 `yaml:"resourceCoreName"`
-	ResourceMemoryPercentageName string                 `yaml:"resourceMemoryPercentageName"`
-	ResourcePriority             string                 `yaml:"resourcePriorityName"`
-	OverwriteEnv                 bool                   `yaml:"overwriteEnv"`
-	DefaultMemory                int32                  `yaml:"defaultMemory"`
-	DefaultCores                 int32                  `yaml:"defaultCores"`
-	DefaultGPUNum                int32                  `yaml:"defaultGPUNum"`
-	DeviceSplitCount             uint                   `yaml:"deviceSplitCount"`
-	DeviceMemoryScaling          float64                `yaml:"deviceMemoryScaling"`
-	DeviceCoreScaling            float64                `yaml:"deviceCoreScaling"`
-	DisableCoreLimit             bool                   `yaml:"disableCoreLimit"`
-	MigGeometriesList            []AllowedMigGeometries `yaml:"knownMigGeometries"`
-	GPUMemoryFactor              uint                   `yaml:"gpuMemoryFactor"`
+	ResourceCountName            string  `yaml:"resourceCountName"`
+	ResourceMemoryName           string  `yaml:"resourceMemoryName"`
+	ResourceCoreName             string  `yaml:"resourceCoreName"`
+	ResourceMemoryPercentageName string  `yaml:"resourceMemoryPercentageName"`
+	ResourcePriority             string  `yaml:"resourcePriorityName"`
+	OverwriteEnv                 bool    `yaml:"overwriteEnv"`
+	DefaultMemory                int32   `yaml:"defaultMemory"`
+	DefaultCores                 int32   `yaml:"defaultCores"`
+	DefaultGPUNum                int32   `yaml:"defaultGPUNum"`
+	DeviceSplitCount             uint    `yaml:"deviceSplitCount"`
+	DeviceMemoryScaling          float64 `yaml:"deviceMemoryScaling"`
+	DeviceCoreScaling            float64 `yaml:"deviceCoreScaling"`
+	DisableCoreLimit             bool    `yaml:"disableCoreLimit"`
+	// LibCudaLogLevel is the optional HAMi-core log level passed to containers as
+	// LIBCUDA_LOG_LEVEL. It is a pointer so that an explicit 0 can be told apart
+	// from an unset value; nil means "not configured" and no env is injected.
+	LibCudaLogLevel   *int                   `yaml:"libCudaLogLevel"`
+	MigGeometriesList []AllowedMigGeometries `yaml:"knownMigGeometries"`
+	GPUMemoryFactor   uint                   `yaml:"gpuMemoryFactor"`
 	// PassDeviceSpecs enables explicit device mounting via kubelet Device Plugin API
 	// When true, device files are passed to kubelet via DeviceSpec, allowing containers
 	// to access GPU devices without requiring nvidia-container-runtime
@@ -90,6 +94,7 @@ var (
 	DeviceCoresScaling float64
 	RuntimeSocketFlag  string
 	DisableCoreLimit   bool
+	LibCudaLogLevel    *int
 	// PassDeviceSpecs controls whether GPU device files are explicitly passed to kubelet
 	// via the DeviceSpec field in ContainerAllocateResponse, enabling GPU access without
 	// nvidia-container-runtime (compatible with standard OCI runtimes like containerd/docker)

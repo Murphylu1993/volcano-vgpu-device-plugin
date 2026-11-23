@@ -22,8 +22,10 @@ By default the device plugin looks for the ConfigMap in the `kube-system` namesp
   Integer type, by default: equals 10. Maximum tasks assigned to a simple GPU device.
 * `nvidia.migstrategy`: 
   String type, "none" for ignoring MIG features or "mixed" for allocating MIG device by seperate resources. Default "none"
-* `nvidia.disablecorelimit`: 
-  String type, "true" for disable core limit, "false" for enable core limit, default: false
+* `nvidia.disableCoreLimit`:
+  Boolean type, by default: false. When set to true, the device plugin injects `GPU_CORE_UTILIZATION_POLICY=disable` into the container, disabling the GPU core utilization limit enforced by hami-core. The key is case-sensitive: use `disableCoreLimit`, not the older `disablecorelimit`. Restart the volcano-vgpu-device-plugin after changing it.
+* `nvidia.libCudaLogLevel`:
+  Integer type, by default: unset. Optional HAMi-core log level injected into containers as `LIBCUDA_LOG_LEVEL`; valid values are 0–4. Errors are always logged; `0` and `1` log errors only, `2` adds warnings and messages, `3` adds info, and `4` adds debug logs. Out-of-range values are ignored with a warning and no environment variable is injected. When unset, no environment variable is injected and HAMi-core keeps its default behavior (level 2). Not applied in `mig` mode. Restart the volcano-vgpu-device-plugin after changing it.
 * `nvidia.defaultMem`: 
   Integer type, by default: 0. The default device memory of the current task, in MB.'0' means use 100% device memory
 * `nvidia.defaultCores`: 

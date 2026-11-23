@@ -712,11 +712,19 @@ func LoadNvidiaConfig(c *cli.Context) *config.NvidiaConfig {
 		klog.InfoS("readFrom device cm error", err.Error())
 	}
 	klog.Infoln("Loaded config=", nvidiaConfig)
-	// Sync the loaded config back to global variables so that
-	// register.go and plugin.go can use the correct values
+	applyNvidiaConfig(nvidiaConfig)
+
+	return &nvidiaConfig
+}
+
+// applyNvidiaConfig syncs the loaded config back to the global variables so
+// that register.go and plugin.go can use the correct values.
+func applyNvidiaConfig(nvidiaConfig config.NvidiaConfig) {
 	config.DeviceSplitCount = nvidiaConfig.DeviceSplitCount
 	config.DeviceCoresScaling = nvidiaConfig.DeviceCoreScaling
 	config.GPUMemoryFactor = nvidiaConfig.GPUMemoryFactor
+	config.DisableCoreLimit = nvidiaConfig.DisableCoreLimit
+	config.LibCudaLogLevel = nvidiaConfig.LibCudaLogLevel
 
 	ResourceName = nvidiaConfig.ResourceCountName
 	ResourceMem = nvidiaConfig.ResourceMemoryName
@@ -724,8 +732,6 @@ func LoadNvidiaConfig(c *cli.Context) *config.NvidiaConfig {
 	ResourceMemPercentage = nvidiaConfig.ResourceMemoryPercentageName
 
 	config.SchedulerConfig = nvidiaConfig
-
-	return &nvidiaConfig
 }
 
 func readFromConfigFile(sConfig *config.NvidiaConfig) error {

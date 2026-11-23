@@ -33,6 +33,8 @@ data:
       deviceSplitCount: 10
       deviceMemoryScaling: 1
       deviceCoreScaling: 1
+      disableCoreLimit: false
+      libCudaLogLevel: null
       gpuMemoryFactor: 1
       knownMigGeometries:
       - models: [ "A30" ]
