@@ -371,6 +371,33 @@ func (plugin *nvidiaDevicePlugin) GetPreferredAllocation(ctx context.Context, r 
 	return response, nil
 }
 
+// libCudaLogLevel bounds accepted by HAMi-core.
+const (
+	libCudaLogLevelMin = 0
+	libCudaLogLevelMax = 4
+)
+
+// applyCoreLimitEnvs injects the hami-core core limit switch and log level into
+// envs. Neither is injected in mig mode, and an out-of-range log level is
+// ignored with a warning instead of being passed through verbatim.
+func applyCoreLimitEnvs(envs map[string]string) {
+	if config.Mode == "mig" {
+		return
+	}
+	if config.DisableCoreLimit {
+		envs[util.CoreLimitSwitch] = "disable"
+	}
+	if config.LibCudaLogLevel == nil {
+		return
+	}
+	level := *config.LibCudaLogLevel
+	if level < libCudaLogLevelMin || level > libCudaLogLevelMax {
+		klog.Warningf("ignoring out-of-range libCudaLogLevel %d, valid range is %d-%d", level, libCudaLogLevelMin, libCudaLogLevelMax)
+		return
+	}
+	envs[util.LibCudaLogLevelEnv] = fmt.Sprintf("%d", level)
+}
+
 // Allocate returns a list of devices.
 func (plugin *nvidiaDevicePlugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	if len(reqs.ContainerRequests) > 1 {
@@ -466,9 +493,7 @@ func (plugin *nvidiaDevicePlugin) Allocate(ctx context.Context, reqs *pluginapi.
 				if config.DeviceCoresScaling > 1 {
 					response.Envs["CUDA_OVERSUBSCRIBE"] = "true"
 				}
-				if config.DisableCoreLimit {
-					response.Envs[util.CoreLimitSwitch] = "disable"
-				}
+				applyCoreLimitEnvs(response.Envs)
 
 				hostHookPath := os.Getenv("HOOK_PATH")
 				cacheFileHostDirectory := fmt.Sprintf("%s/vgpu/containers/%s_%s", hostHookPath, current.UID, currentCtr.Name)

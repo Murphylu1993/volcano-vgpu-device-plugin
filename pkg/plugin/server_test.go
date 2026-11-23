@@ -30,6 +30,7 @@ import (
 	"volcano.sh/k8s-device-plugin/pkg/config"
 	"volcano.sh/k8s-device-plugin/pkg/imex"
 	"volcano.sh/k8s-device-plugin/pkg/rm"
+	"volcano.sh/k8s-device-plugin/pkg/util"
 )
 
 type listAndWatchServerMock struct {
@@ -355,6 +356,74 @@ func TestCDIAllocateResponse(t *testing.T) {
 
 			require.Nil(t, err)
 			require.EqualValues(t, &tc.expectedResponse, &response)
+		})
+	}
+}
+
+func TestApplyCoreLimitEnvs(t *testing.T) {
+	testCases := []struct {
+		name     string
+		mode     string
+		disable  bool
+		logLevel *int
+		wantEnvs map[string]string
+	}{
+		{
+			name:     "disable core limit and explicit zero log level",
+			mode:     "hami-core",
+			disable:  true,
+			logLevel: ptr(0),
+			wantEnvs: map[string]string{
+				util.CoreLimitSwitch:    "disable",
+				util.LibCudaLogLevelEnv: "0",
+			},
+		},
+		{
+			name:     "log level four",
+			mode:     "hami-core",
+			logLevel: ptr(4),
+			wantEnvs: map[string]string{util.LibCudaLogLevelEnv: "4"},
+		},
+		{
+			name:     "unset log level is not injected",
+			mode:     "hami-core",
+			wantEnvs: map[string]string{},
+		},
+		{
+			name:     "mig mode injects neither env",
+			mode:     "mig",
+			disable:  true,
+			logLevel: ptr(4),
+			wantEnvs: map[string]string{},
+		},
+		{
+			name:     "negative log level is ignored",
+			mode:     "hami-core",
+			disable:  true,
+			logLevel: ptr(-1),
+			wantEnvs: map[string]string{util.CoreLimitSwitch: "disable"},
+		},
+		{
+			name:     "log level above maximum is ignored",
+			mode:     "hami-core",
+			logLevel: ptr(5),
+			wantEnvs: map[string]string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			oldMode, oldDisable, oldLevel := config.Mode, config.DisableCoreLimit, config.LibCudaLogLevel
+			t.Cleanup(func() {
+				config.Mode, config.DisableCoreLimit, config.LibCudaLogLevel = oldMode, oldDisable, oldLevel
+			})
+			config.Mode = tc.mode
+			config.DisableCoreLimit = tc.disable
+			config.LibCudaLogLevel = tc.logLevel
+
+			envs := map[string]string{}
+			applyCoreLimitEnvs(envs)
+			require.Equal(t, tc.wantEnvs, envs)
 		})
 	}
 }

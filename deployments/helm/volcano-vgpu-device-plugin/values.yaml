@@ -30,6 +30,11 @@ deviceConfig:
     deviceSplitCount: 10
     deviceMemoryScaling: 1
     deviceCoreScaling: 1
+    disableCoreLimit: false
+    # HAMi-core log level injected into containers as LIBCUDA_LOG_LEVEL.
+    # Valid values are 0-4. Leave null to keep HAMi-core's default behavior
+    # (no env injected). Not applied in mig mode.
+    libCudaLogLevel: null
     # Size of one volcano.sh/vgpu-memory unit in MiB. Pod requests must use
     # ceil(desired MiB / gpuMemoryFactor). Keep the node-wide sum of
     # floor(each GPU's MiB / gpuMemoryFactor) at or below 60000.

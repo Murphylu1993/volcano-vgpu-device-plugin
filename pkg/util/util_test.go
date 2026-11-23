@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"volcano.sh/k8s-device-plugin/pkg/config"
 )
 
 const testDeviceConfigCMName = "volcano-vgpu-device-config"
@@ -143,6 +144,134 @@ func TestLoadConfigFromCM(t *testing.T) {
 			}
 			if got.NvidiaConfig.DeviceSplitCount != tt.wantSplitCount {
 				t.Errorf("deviceSplitCount = %d, want %d", got.NvidiaConfig.DeviceSplitCount, tt.wantSplitCount)
+			}
+		})
+	}
+}
+
+// snapshotNvidiaGlobals returns a function that restores the global config
+// values applyNvidiaConfig writes to.
+func snapshotNvidiaGlobals() func() {
+	schedulerConfig := config.SchedulerConfig
+	splitCount, coresScaling, memoryFactor := config.DeviceSplitCount, config.DeviceCoresScaling, config.GPUMemoryFactor
+	disableCoreLimit := config.DisableCoreLimit
+	libCudaLogLevel := config.LibCudaLogLevel
+	resourceName, resourceMem := ResourceName, ResourceMem
+	resourceCores, resourceMemPercentage := ResourceCores, ResourceMemPercentage
+	return func() {
+		config.SchedulerConfig = schedulerConfig
+		config.DeviceSplitCount = splitCount
+		config.DeviceCoresScaling = coresScaling
+		config.GPUMemoryFactor = memoryFactor
+		config.DisableCoreLimit = disableCoreLimit
+		config.LibCudaLogLevel = libCudaLogLevel
+		ResourceName = resourceName
+		ResourceMem = resourceMem
+		ResourceCores = resourceCores
+		ResourceMemPercentage = resourceMemPercentage
+	}
+}
+
+// TestDisableCoreLimitSync verifies that the ConfigMap value is loaded and
+// published to the global consumed by the allocate path.
+func TestDisableCoreLimitSync(t *testing.T) {
+	t.Cleanup(snapshotNvidiaGlobals())
+
+	tests := []struct {
+		name     string
+		cmData   string
+		initial  bool
+		expected bool
+	}{
+		{
+			name:     "enabled in ConfigMap",
+			cmData:   "nvidia:\n  disableCoreLimit: true\n",
+			initial:  false,
+			expected: true,
+		},
+		{
+			name:     "disabled in ConfigMap",
+			cmData:   "nvidia:\n  disableCoreLimit: false\n",
+			initial:  true,
+			expected: false,
+		},
+		{
+			name:     "defaults to false when omitted",
+			cmData:   "nvidia:\n  deviceSplitCount: 3\n",
+			initial:  true,
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config.DisableCoreLimit = tt.initial
+			cs := fake.NewClientset(deviceConfigCM("kube-system", map[string]string{DeviceConfigurationConfigMapKey: tt.cmData}))
+			got, err := loadConfigFromCM(context.Background(), cs, deviceConfigNamespaces(""), testDeviceConfigCMName)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			applyNvidiaConfig(got.NvidiaConfig)
+			if config.DisableCoreLimit != tt.expected {
+				t.Fatalf("DisableCoreLimit = %v, want %v", config.DisableCoreLimit, tt.expected)
+			}
+		})
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
+// TestLibCudaLogLevelSync verifies that libCudaLogLevel is synced into the
+// global consumed by the allocate path, preserving an explicit 0 while keeping
+// omitted/null values as unset.
+func TestLibCudaLogLevelSync(t *testing.T) {
+	t.Cleanup(snapshotNvidiaGlobals())
+
+	tests := []struct {
+		name   string
+		cmData string
+		want   *int
+	}{
+		{
+			name:   "explicit zero is preserved",
+			cmData: "nvidia:\n  libCudaLogLevel: 0\n",
+			want:   intPtr(0),
+		},
+		{
+			name:   "explicit non-zero value",
+			cmData: "nvidia:\n  libCudaLogLevel: 4\n",
+			want:   intPtr(4),
+		},
+		{
+			name:   "omitted stays unset",
+			cmData: "nvidia:\n  deviceSplitCount: 3\n",
+			want:   nil,
+		},
+		{
+			name:   "explicit null stays unset",
+			cmData: "nvidia:\n  libCudaLogLevel: null\n",
+			want:   nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Start from a non-nil value so the unset cases also prove the sync
+			// clears a previously configured level.
+			config.LibCudaLogLevel = intPtr(1)
+			cs := fake.NewClientset(deviceConfigCM("kube-system", map[string]string{DeviceConfigurationConfigMapKey: tt.cmData}))
+			got, err := loadConfigFromCM(context.Background(), cs, deviceConfigNamespaces(""), testDeviceConfigCMName)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			applyNvidiaConfig(got.NvidiaConfig)
+			switch {
+			case tt.want == nil && config.LibCudaLogLevel != nil:
+				t.Fatalf("LibCudaLogLevel = %d, want nil (unset)", *config.LibCudaLogLevel)
+			case tt.want != nil && config.LibCudaLogLevel == nil:
+				t.Fatalf("LibCudaLogLevel = nil, want %d", *tt.want)
+			case tt.want != nil && *config.LibCudaLogLevel != *tt.want:
+				t.Fatalf("LibCudaLogLevel = %d, want %d", *config.LibCudaLogLevel, *tt.want)
 			}
 		})
 	}

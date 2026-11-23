@@ -59,6 +59,10 @@ const (
 	DeviceConfigurationConfigMapKey = "device-config.yaml"
 
 	CoreLimitSwitch = "GPU_CORE_UTILIZATION_POLICY"
+
+	// LibCudaLogLevelEnv is the environment variable read by HAMi-core to set
+	// its log verbosity.
+	LibCudaLogLevelEnv = "LIBCUDA_LOG_LEVEL"
 )
 
 var (

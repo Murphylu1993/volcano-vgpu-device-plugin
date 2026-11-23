@@ -20,6 +20,12 @@ data:
       deviceSplitCount: {{ .Values.deviceConfig.nvidia.deviceSplitCount }}
       deviceMemoryScaling: {{ .Values.deviceConfig.nvidia.deviceMemoryScaling }}
       deviceCoreScaling: {{ .Values.deviceConfig.nvidia.deviceCoreScaling }}
+      disableCoreLimit: {{ .Values.deviceConfig.nvidia.disableCoreLimit }}
+      {{- if kindIs "invalid" .Values.deviceConfig.nvidia.libCudaLogLevel }}
+      libCudaLogLevel: null
+      {{- else }}
+      libCudaLogLevel: {{ .Values.deviceConfig.nvidia.libCudaLogLevel }}
+      {{- end }}
       gpuMemoryFactor: {{ .Values.deviceConfig.nvidia.gpuMemoryFactor }}
       knownMigGeometries:
 {{ .Values.deviceConfig.nvidia.knownMigGeometries | toYaml | nindent 6 }}
